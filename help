@@ -7,15 +7,17 @@
 //브랜치를 만드려면 git checkout -b 브랜치의-이름(영문) 을 사용하면 되고
 //그 브랜치를 로컬 즉, 이 깃허브에 올리려면 git add . 을 통해 수정된 브랜치들을 올리고, / git commit -m 브랜치의-이름(한글가능) / git push origin 브랜치의-이름(영문) 으로 로컬 사이트에 올릴 수 있는거야!
 //다들 힘내><**
+
 //그냥 여기에 순서를 남겨줄께!!
+
 //1. 깃허브 위쪽에 보이는 + 를 누르고 New codespace를 누른다.
 //2. Repository 에서 jang0203/crawling_code 를 선택한다.
 //3. create codespace 를 누른다.
 //4. 일단 로그인 부터 한다 (코드스페이스 왼쪽 아래 부근에서 가능)
 //5. 터미널 (열려있는 창) 에 git remote -v 를 처본다
-//6. 아무것도 안나오면 git remote add origin https://github.com/jang0203/crawling_code 를 치고, 뭔가 나온다면 넘어간다
+//6. 아무것도 안나오면 git remote add origin https://github.com/jang0203/crawling_code 를 치고 git remote -v 를 다시눌러서 2줄이 나오는 지 확인하고 넘어간다.
 //7. 그다음에 열심히 코드 작성하기 (터미널에서 코드 쓰면 안됨! ㅋㅋㅋ)
-//8. 저장하고 싶다면 터미널에서 git branch 를 활용해서 일단 만들어져 있는 브랜치 확인 + git branch -r 을 해서 온라인에 올라간 브랜치 확인 + 마음의 안정
+//8. 저장하고 싶다면 터미널에서 git branch -a 로 모든 브랜치 확인하기 (만약 main 하나만 있으면 git fetch origin 를 이용해 최신 내용 업데이트) + 마음의 안정
 //9. 터미널에 git add . 을 넣는다 (브랜치 모양 아이콘에서 변형된 부분 스테이징 하기 눌러도 되긴해)
 //10. git checkout -b 원하는브랜치이름(영문)
 //11. git commit -m 남길커밋메세지(한글가능)
