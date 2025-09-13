@@ -5,7 +5,9 @@ import unicodedata
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote_plus
+from OldHangeul import hNFD  # [OldHangeul 적용]
 
+# 설정
 BASE = "https://archive.aks.ac.kr"
 LIST_URL = f"{BASE}/letter/list.do?itemId=letter&gubun=lettername&pageIndex=1&pageUnit=1000"
 
@@ -28,7 +30,7 @@ for g in folders.values():
     for p in g.values():
         os.makedirs(p, exist_ok=True)
 
-# 안전한 제목 정규화 함수
+# 제목 정규화
 def normalize_title(title: str) -> str:
     if not title:
         return "무제"
@@ -39,7 +41,7 @@ def normalize_title(title: str) -> str:
     s = re.sub(r'[\\/*?:"<>|]', '', s)
     return s[:150] if len(s) > 150 else s
 
-# 중복 방지 테이블
+# 중복 방지
 title_counter = {}
 def get_unique_title_once(norm_title: str) -> str:
     if norm_title not in title_counter:
@@ -71,7 +73,7 @@ if ul:
 
 print("수집된 항목:", len(items))
 
-# 상세 페이지에서 원문/번역 추출: 여러 시도(직접, 대체 셀렉터, iframe, AJAX 예비 시도)
+# 상세 페이지에서 텍스트 추출
 def extract_text_from_detail(url):
     r = session.get(url, timeout=20)
     r.encoding = r.apparent_encoding or "utf-8"
@@ -98,7 +100,6 @@ def extract_text_from_detail(url):
         for el_to_remove in element.select("div.comment_box, dl.jusok-dl, span.kakju_num"):
             el_to_remove.decompose()
 
-    # 시도 1: 직접 selector
     for key, sels in candidates:
         for sel in sels:
             el = s.select_one(sel)
@@ -107,7 +108,6 @@ def extract_text_from_detail(url):
                 result[key] = el.get_text(separator="\n", strip=True)
                 break
 
-    # 시도 2: iframe 있는지 확인 (기존 로직 보존)
     if (not result["원문"] or not result["번역"]):
         iframe = s.find("iframe")
         if iframe and iframe.get("src"):
@@ -126,24 +126,18 @@ def extract_text_from_detail(url):
                             clean_element(el)
                             result[key] = el.get_text(separator="\n", strip=True)
                             break
-            except Exception as e:
+            except Exception:
                 pass
 
-    # 시도 3: 간단한 AJAX 시도 (기존 로직 보존)
     if (not result["원문"] or not result["번역"]):
         parsed = urlparse(url)
         qs = parse_qs(parsed.query)
         data_id = qs.get("dataId", [None])[0]
         if data_id:
-            encoded = quote_plus(data_id)
-            guess_endpoints = [
-                urljoin(BASE, "/letter/view.do"),
-                urljoin(BASE, "/letter/viewAjax.do"),
-                urljoin(BASE, "/letter/contents.do"),
-            ]
-            for ep in guess_endpoints:
+            for ep in ["/letter/view.do", "/letter/viewAjax.do", "/letter/contents.do"]:
                 try:
-                    r3 = session.get(ep, params={"dataId": data_id}, headers={"X-Requested-With":"XMLHttpRequest"}, timeout=10)
+                    r3 = session.get(urljoin(BASE, ep), params={"dataId": data_id},
+                                     headers={"X-Requested-With": "XMLHttpRequest"}, timeout=10)
                     if r3.status_code == 200 and r3.text.strip():
                         s3 = BeautifulSoup(r3.text, "html.parser")
                         for key, sels in candidates:
@@ -160,26 +154,21 @@ def extract_text_from_detail(url):
                 except Exception:
                     continue
 
-    # <<< [수정] '주석문'이 있으면 그 뒷부분을 잘라내는 로직 >>>
+    # 주석문 제거
     if "주석문" in result["원문"]:
         result["원문"] = result["원문"].split("주석문", 1)[0].strip()
     if "주석문" in result["번역"]:
         result["번역"] = result["번역"].split("주석문", 1)[0].strip()
 
-    # <<< [수정] 반환값에서 skip 플래그 제거 >>>
     return result["원문"], result["번역"], year
 
-# 메인 루프: 제목 정규화 -> unique title 생성(한 번만) -> extract -> 저장
+# 메인 루프
 for idx, (title, link) in enumerate(items, 1):
     try:
         norm = normalize_title(title)
         unique_base = get_unique_title_once(norm)
 
-        # <<< [수정] 3개의 반환값만 받도록 변경 >>>
         original, translation, year = extract_text_from_detail(link)
-
-        # <<< [삭제] skip 관련 로직 완전히 제거 >>>
-        # if skip: ... 이 부분 삭제
 
         if not original and not translation:
             print(f"[{idx}/{len(items)}] '{title}' 내용 없음 — 수동 확인 필요: {link}")
@@ -193,15 +182,19 @@ for idx, (title, link) in enumerate(items, 1):
             year_str = f"{year}년" if year else "연도미상"
             print(f"[{idx}/{len(items)}] '{title}' ({year_str}) -> '{group}'로 저장")
 
+        # [OldHangeul 적용] 텍스트 정규화
         if original:
+            original_converted = hNFD(original)
             path = os.path.join(folders[group]["고문서"], f"{unique_base}.txt")
             with open(path, "w", encoding="utf-8") as f:
-                f.write(original)
+                f.write(original_converted)
+
         if translation:
+            translation_converted = hNFD(translation)
             path = os.path.join(folders[group]["번역본"], f"{unique_base}.txt")
             with open(path, "w", encoding="utf-8") as f:
-                f.write(translation)
-        
+                f.write(translation_converted)
+
         time.sleep(0.3)
 
     except Exception as e:
